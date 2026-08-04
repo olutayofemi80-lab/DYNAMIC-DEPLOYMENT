@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Deployment Practice App</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <div class="container">
+      <h1>Deployment Practice App</h1>
+      <p>Manage your deployment tasks dynamically.</p>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="card">
+      <h2>Add a Task</h2>
+
+      <form id="taskForm">
+        <input id="title" type="text" placeholder="Task title" required>
+        <textarea id="description" placeholder="Task description"></textarea>
+        <button type="submit">Add Task</button>
+      </form>
+
+      <p id="message"></p>
+    </section>
+
+    <section class="card">
+      <div class="section-header">
+        <h2>Deployment Tasks</h2>
+        <button id="refreshBtn">Refresh</button>
+      </div>
+
+      <div id="tasks">
+        <p>Loading tasks...</p>
+      </div>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
