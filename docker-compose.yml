@@ -1,31 +1,31 @@
 services:
-  mongo:
-    image: mongo:7
-    container_name: deployment-practice-mongo
-    restart: unless-stopped
-    volumes:
-      - mongo_data:/data/db
-
   backend:
-    build: ./backend
+    image: femzytr/dynamicdeployment-backend:latest
     container_name: deployment-practice-backend
-    restart: unless-stopped
-    environment:
-      MONGO_URI: mongodb://mongo:27017/deployment_practice
-      PORT: 3001
+    restart: always
     ports:
       - "3001:3001"
+    environment:
+      PORT: 3001
+      MONGO_URI: mongodb://mongo:27017/deployment_practice
     depends_on:
       - mongo
 
   frontend:
-    build: ./frontend
+    image: femzytr/dynamicdeployment-frontend:latest
     container_name: deployment-practice-frontend
-    restart: unless-stopped
+    restart: always
     ports:
       - "8081:80"
     depends_on:
       - backend
 
+  mongo:
+    image: mongo:7
+    container_name: deployment-practice-mongo
+    restart: always
+    volumes:
+      - mongo-data:/data/db
+
 volumes:
-  mongo_data:
+  mongo-data:

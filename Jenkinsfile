@@ -2,8 +2,8 @@ pipeline {
     agent any
 
     environment {
-        BACKEND_IMAGE = 'femzytr/dynamicdeployment-backend'
-        FRONTEND_IMAGE = 'femzytr/dynamicdeployment-frontend'
+        BACKEND_IMAGE = "femzytr/dynamicdeployment-backend"
+        FRONTEND_IMAGE = "femzytr/dynamicdeployment-frontend"
         IMAGE_TAG = "${BUILD_NUMBER}"
     }
 
@@ -23,7 +23,7 @@ pipeline {
             }
         }
 
-        stage('Test') {
+        stage('Run Tests') {
             steps {
                 dir('backend') {
                     sh 'npm test'
@@ -32,20 +32,20 @@ pipeline {
         }
 
         stage('Build Docker Images') {
-    steps {
-        sh '''
-            docker build \
-              -t ${BACKEND_IMAGE}:${IMAGE_TAG} \
-              -t ${BACKEND_IMAGE}:latest \
-              ./backend
+            steps {
+                sh """
+                    docker build \
+                      -t ${BACKEND_IMAGE}:${IMAGE_TAG} \
+                      -t ${BACKEND_IMAGE}:latest \
+                      ./backend
 
-            docker build \
-              -t ${FRONTEND_IMAGE}:${IMAGE_TAG} \
-              -t ${FRONTEND_IMAGE}:latest \
-              ./frontend
-        '''
-    }
-}
+                    docker build \
+                      -t ${FRONTEND_IMAGE}:${IMAGE_TAG} \
+                      -t ${FRONTEND_IMAGE}:latest \
+                      ./frontend
+                """
+            }
+        }
 
         stage('Login to Docker Hub') {
             steps {
@@ -66,36 +66,54 @@ pipeline {
         }
 
         stage('Push Images to Docker Hub') {
-    steps {
-        sh '''
-            docker push ${BACKEND_IMAGE}:${IMAGE_TAG}
-            docker push ${BACKEND_IMAGE}:latest
+            steps {
+                sh """
+                    docker push ${BACKEND_IMAGE}:${IMAGE_TAG}
+                    docker push ${BACKEND_IMAGE}:latest
 
-            docker push ${FRONTEND_IMAGE}:${IMAGE_TAG}
-            docker push ${FRONTEND_IMAGE}:latest
-        '''
-    }
-}
-        stage('Deploy') {
-    steps {
-        sh '''
-            docker compose pull
-            docker compose up -d
-        '''
-    }
-}
-        
+                    docker push ${FRONTEND_IMAGE}:${IMAGE_TAG}
+                    docker push ${FRONTEND_IMAGE}:latest
+                """
+            }
+        }
+
+        stage('Deploy Application') {
+            steps {
+                sh """
+                    cd ${WORKSPACE}
+
+                    docker compose pull
+
+                    docker compose up -d --remove-orphans
+                """
+            }
+        }
+
+        stage('Cleanup Docker Images') {
+            steps {
+                sh '''
+                    docker image prune -f
+                '''
+            }
+        }
     }
 
     post {
-        always {
-            sh 'docker logout || true'
-        }
 
         success {
-            echo "Docker images pushed successfully!"
-            echo "Backend: ${BACKEND_IMAGE}:${IMAGE_TAG}"
-            echo "Frontend: ${FRONTEND_IMAGE}:${IMAGE_TAG}"
+            echo "========================================="
+            echo "CI/CD Pipeline Completed Successfully!"
+            echo "Backend Image : ${BACKEND_IMAGE}:${IMAGE_TAG}"
+            echo "Frontend Image: ${FRONTEND_IMAGE}:${IMAGE_TAG}"
+            echo "========================================="
+        }
+
+        failure {
+            echo "Pipeline Failed!"
+        }
+
+        always {
+            sh 'docker logout || true'
         }
     }
 }
