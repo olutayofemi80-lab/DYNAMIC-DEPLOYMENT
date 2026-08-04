@@ -1,7 +1,14 @@
 pipeline {
     agent any
 
+    environment {
+        BACKEND_IMAGE = 'femzytr/dynamicdeployment-backend'
+        FRONTEND_IMAGE = 'femzytr/dynamicdeployment-frontend'
+        IMAGE_TAG = "${BUILD_NUMBER}"
+    }
+
     stages {
+
         stage('Checkout') {
             steps {
                 checkout scm
@@ -26,20 +33,50 @@ pipeline {
 
         stage('Build Docker Images') {
             steps {
-                sh 'docker compose build'
+                sh '''
+                    docker build -t ${BACKEND_IMAGE}:${IMAGE_TAG} ./backend
+                    docker build -t ${FRONTEND_IMAGE}:${IMAGE_TAG} ./frontend
+                '''
             }
         }
 
-        stage('Deploy') {
+        stage('Login to Docker Hub') {
             steps {
-                sh 'docker compose up -d'
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'dockerhub-credentials',
+                        usernameVariable: 'DOCKER_USERNAME',
+                        passwordVariable: 'DOCKER_PASSWORD'
+                    )
+                ]) {
+                    sh '''
+                        echo "$DOCKER_PASSWORD" | docker login \
+                        -u "$DOCKER_USERNAME" \
+                        --password-stdin
+                    '''
+                }
+            }
+        }
+
+        stage('Push Images to Docker Hub') {
+            steps {
+                sh '''
+                    docker push ${BACKEND_IMAGE}:${IMAGE_TAG}
+                    docker push ${FRONTEND_IMAGE}:${IMAGE_TAG}
+                '''
             }
         }
     }
 
     post {
         always {
-            sh 'docker compose ps || true'
+            sh 'docker logout || true'
+        }
+
+        success {
+            echo "Docker images pushed successfully!"
+            echo "Backend: ${BACKEND_IMAGE}:${IMAGE_TAG}"
+            echo "Frontend: ${FRONTEND_IMAGE}:${IMAGE_TAG}"
         }
     }
 }
