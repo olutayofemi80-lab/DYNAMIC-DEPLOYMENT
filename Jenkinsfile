@@ -32,13 +32,20 @@ pipeline {
         }
 
         stage('Build Docker Images') {
-            steps {
-                sh '''
-                    docker build -t ${BACKEND_IMAGE}:${IMAGE_TAG} ./backend
-                    docker build -t ${FRONTEND_IMAGE}:${IMAGE_TAG} ./frontend
-                '''
-            }
-        }
+    steps {
+        sh '''
+            docker build \
+              -t ${BACKEND_IMAGE}:${IMAGE_TAG} \
+              -t ${BACKEND_IMAGE}:latest \
+              ./backend
+
+            docker build \
+              -t ${FRONTEND_IMAGE}:${IMAGE_TAG} \
+              -t ${FRONTEND_IMAGE}:latest \
+              ./frontend
+        '''
+    }
+}
 
         stage('Login to Docker Hub') {
             steps {
@@ -59,13 +66,25 @@ pipeline {
         }
 
         stage('Push Images to Docker Hub') {
-            steps {
-                sh '''
-                    docker push ${BACKEND_IMAGE}:${IMAGE_TAG}
-                    docker push ${FRONTEND_IMAGE}:${IMAGE_TAG}
-                '''
-            }
-        }
+    steps {
+        sh '''
+            docker push ${BACKEND_IMAGE}:${IMAGE_TAG}
+            docker push ${BACKEND_IMAGE}:latest
+
+            docker push ${FRONTEND_IMAGE}:${IMAGE_TAG}
+            docker push ${FRONTEND_IMAGE}:latest
+        '''
+    }
+}
+        stage('Deploy') {
+    steps {
+        sh '''
+            docker compose pull
+            docker compose up -d
+        '''
+    }
+}
+        
     }
 
     post {
