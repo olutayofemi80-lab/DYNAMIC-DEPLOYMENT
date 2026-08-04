@@ -35,14 +35,14 @@ pipeline {
             steps {
                 sh """
                     docker build \
-                      -t ${BACKEND_IMAGE}:${IMAGE_TAG} \
-                      -t ${BACKEND_IMAGE}:latest \
-                      ./backend
+                        -t ${BACKEND_IMAGE}:${IMAGE_TAG} \
+                        -t ${BACKEND_IMAGE}:latest \
+                        ./backend
 
                     docker build \
-                      -t ${FRONTEND_IMAGE}:${IMAGE_TAG} \
-                      -t ${FRONTEND_IMAGE}:latest \
-                      ./frontend
+                        -t ${FRONTEND_IMAGE}:${IMAGE_TAG} \
+                        -t ${FRONTEND_IMAGE}:latest \
+                        ./frontend
                 """
             }
         }
@@ -79,13 +79,12 @@ pipeline {
 
         stage('Deploy Application') {
             steps {
-                sh """
-                    cd ${WORKSPACE}
-
-                    docker compose pull
-
-                    docker compose up -d --remove-orphans
-                """
+                dir('.') {
+                    sh '''
+                        docker compose pull
+                        docker compose up -d --remove-orphans
+                    '''
+                }
             }
         }
 
@@ -101,11 +100,11 @@ pipeline {
     post {
 
         success {
-            echo "========================================="
+            echo "======================================="
             echo "CI/CD Pipeline Completed Successfully!"
             echo "Backend Image : ${BACKEND_IMAGE}:${IMAGE_TAG}"
             echo "Frontend Image: ${FRONTEND_IMAGE}:${IMAGE_TAG}"
-            echo "========================================="
+            echo "======================================="
         }
 
         failure {
