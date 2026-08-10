@@ -2,25 +2,25 @@ pipeline {
     agent any
 
     environment {
-        BACKEND_IMAGE  = "femzytr/dynamicdeployment-backend"
+        BACKEND_IMAGE = "femzytr/dynamicdeployment-backend"
         FRONTEND_IMAGE = "femzytr/dynamicdeployment-frontend"
-        IMAGE_TAG      = "${BUILD_NUMBER}"
-        K8S_NAMESPACE  = "dynamic-deployment"
+
+        IMAGE_TAG = "${BUILD_NUMBER}"
+
+        KUBECONFIG = "/var/lib/jenkins/.kube/config"
+        K8S_NAMESPACE = "dynamic-deployment"
     }
 
     stages {
 
         stage('Checkout') {
             steps {
-                echo 'Checking out code from GitHub...'
                 checkout scm
             }
         }
 
-        stage('Install Backend Dependencies') {
+        stage('Install Dependencies') {
             steps {
-                echo 'Installing backend dependencies...'
-
                 dir('backend') {
                     sh 'npm ci'
                 }
@@ -29,59 +29,29 @@ pipeline {
 
         stage('Run Tests') {
             steps {
-                echo 'Running backend tests...'
-
                 dir('backend') {
                     sh 'npm test'
                 }
             }
         }
 
-        stage('Check Docker') {
+        stage('Check Kubernetes Connection') {
             steps {
                 sh '''
-                    echo "======================================"
-                    echo "Checking Docker"
-                    echo "======================================"
-
-                    docker --version
-                    docker info
-                '''
-            }
-        }
-
-        stage('Check Kubernetes') {
-            steps {
-                sh '''
-                    echo "======================================"
-                    echo "Checking Kubernetes"
-                    echo "======================================"
-
-                    kubectl version --client
-
-                    echo "Kubernetes Nodes:"
+                    echo "Checking Kubernetes connection..."
                     kubectl get nodes
+                    kubectl get namespaces
                 '''
             }
         }
 
-        stage('Build Backend Image') {
+        stage('Build Docker Images') {
             steps {
                 sh """
-                    echo "Building backend image..."
-
                     docker build \
                         -t ${BACKEND_IMAGE}:${IMAGE_TAG} \
                         -t ${BACKEND_IMAGE}:latest \
                         ./backend
-                """
-            }
-        }
-
-        stage('Build Frontend Image') {
-            steps {
-                sh """
-                    echo "Building frontend image..."
 
                     docker build \
                         -t ${FRONTEND_IMAGE}:${IMAGE_TAG} \
@@ -102,28 +72,18 @@ pipeline {
                 ]) {
                     sh '''
                         echo "$DOCKER_PASSWORD" | docker login \
-                            --username "$DOCKER_USERNAME" \
+                            -u "$DOCKER_USERNAME" \
                             --password-stdin
                     '''
                 }
             }
         }
 
-        stage('Push Backend Image') {
+        stage('Push Images to Docker Hub') {
             steps {
                 sh """
-                    echo "Pushing backend image..."
-
                     docker push ${BACKEND_IMAGE}:${IMAGE_TAG}
                     docker push ${BACKEND_IMAGE}:latest
-                """
-            }
-        }
-
-        stage('Push Frontend Image') {
-            steps {
-                sh """
-                    echo "Pushing frontend image..."
 
                     docker push ${FRONTEND_IMAGE}:${IMAGE_TAG}
                     docker push ${FRONTEND_IMAGE}:latest
@@ -131,36 +91,37 @@ pipeline {
             }
         }
 
-        stage('Deploy Kubernetes Resources') {
+        stage('Create Kubernetes Namespace') {
             steps {
-                sh """
-                    echo "======================================"
-                    echo "Deploying Kubernetes Resources"
-                    echo "======================================"
-
-                    kubectl apply -f kubernetes/namespace.yml
-
-                    kubectl apply -f kubernetes/secret.yml
-
-                    kubectl apply -f kubernetes/mongo-deployment.yml
-                    kubectl apply -f kubernetes/mongo-service.yml
-
-                    kubectl apply -f kubernetes/backend-deployment.yml
-                    kubectl apply -f kubernetes/backend-service.yml
-
-                    kubectl apply -f kubernetes/frontend-deployment.yml
-                    kubectl apply -f kubernetes/frontend-service.yml
-
-                    kubectl apply -f kubernetes/ingress.yml
-                """
+                sh '''
+                    kubectl apply -f kubernetes/namespace.yaml
+                '''
             }
         }
 
-        stage('Update Backend Image') {
+        stage('Apply Kubernetes Configuration') {
+            steps {
+                sh '''
+                    kubectl apply -f kubernetes/secret.yaml -n ${K8S_NAMESPACE}
+                    kubectl apply -f kubernetes/configmap.yaml -n ${K8S_NAMESPACE}
+                '''
+            }
+        }
+
+        stage('Deploy MongoDB') {
+            steps {
+                sh '''
+                    kubectl apply -f kubernetes/mongo-deployment.yaml -n ${K8S_NAMESPACE}
+                    kubectl apply -f kubernetes/mongo-service.yaml -n ${K8S_NAMESPACE}
+                '''
+            }
+        }
+
+        stage('Deploy Backend') {
             steps {
                 sh """
-                    echo "Updating backend to:"
-                    echo "${BACKEND_IMAGE}:${IMAGE_TAG}"
+                    kubectl apply -f kubernetes/backend-deployment.yaml -n ${K8S_NAMESPACE}
+                    kubectl apply -f kubernetes/backend-service.yaml -n ${K8S_NAMESPACE}
 
                     kubectl set image deployment/backend \
                         backend=${BACKEND_IMAGE}:${IMAGE_TAG} \
@@ -169,11 +130,11 @@ pipeline {
             }
         }
 
-        stage('Update Frontend Image') {
+        stage('Deploy Frontend') {
             steps {
                 sh """
-                    echo "Updating frontend to:"
-                    echo "${FRONTEND_IMAGE}:${IMAGE_TAG}"
+                    kubectl apply -f kubernetes/frontend-deployment.yaml -n ${K8S_NAMESPACE}
+                    kubectl apply -f kubernetes/frontend-service.yaml -n ${K8S_NAMESPACE}
 
                     kubectl set image deployment/frontend \
                         frontend=${FRONTEND_IMAGE}:${IMAGE_TAG} \
@@ -182,65 +143,54 @@ pipeline {
             }
         }
 
-        stage('Wait for Backend Rollout') {
+        stage('Deploy Ingress') {
             steps {
-                sh """
-                    echo "Waiting for backend rollout..."
-
-                    kubectl rollout status deployment/backend \
-                        -n ${K8S_NAMESPACE} \
-                        --timeout=180s
-                """
+                sh '''
+                    kubectl apply -f kubernetes/ingress.yaml -n ${K8S_NAMESPACE}
+                '''
             }
         }
 
-        stage('Wait for Frontend Rollout') {
+        stage('Wait for Deployments') {
             steps {
-                sh """
-                    echo "Waiting for frontend rollout..."
+                sh '''
+                    echo "Waiting for MongoDB..."
+                    kubectl rollout status deployment/mongo \
+                        -n ${K8S_NAMESPACE} \
+                        --timeout=180s
 
+                    echo "Waiting for Backend..."
+                    kubectl rollout status deployment/backend \
+                        -n ${K8S_NAMESPACE} \
+                        --timeout=180s
+
+                    echo "Waiting for Frontend..."
                     kubectl rollout status deployment/frontend \
                         -n ${K8S_NAMESPACE} \
                         --timeout=180s
-                """
+                '''
             }
         }
 
         stage('Verify Kubernetes Deployment') {
             steps {
-                sh """
-                    echo "======================================"
-                    echo "DEPLOYMENTS"
-                    echo "======================================"
+                sh '''
+                    echo "===== DEPLOYMENTS ====="
+                    kubectl get deployments -n ${K8S_NAMESPACE}
 
-                    kubectl get deployments \
-                        -n ${K8S_NAMESPACE}
+                    echo "===== PODS ====="
+                    kubectl get pods -n ${K8S_NAMESPACE}
 
-                    echo "======================================"
-                    echo "PODS"
-                    echo "======================================"
+                    echo "===== SERVICES ====="
+                    kubectl get services -n ${K8S_NAMESPACE}
 
-                    kubectl get pods \
-                        -n ${K8S_NAMESPACE}
-
-                    echo "======================================"
-                    echo "SERVICES"
-                    echo "======================================"
-
-                    kubectl get services \
-                        -n ${K8S_NAMESPACE}
-
-                    echo "======================================"
-                    echo "INGRESS"
-                    echo "======================================"
-
-                    kubectl get ingress \
-                        -n ${K8S_NAMESPACE}
-                """
+                    echo "===== INGRESS ====="
+                    kubectl get ingress -n ${K8S_NAMESPACE}
+                '''
             }
         }
 
-        stage('Cleanup Docker') {
+        stage('Cleanup Docker Images') {
             steps {
                 sh '''
                     docker image prune -f
@@ -253,34 +203,33 @@ pipeline {
 
         success {
             echo """
-=============================================
-       CI/CD PIPELINE SUCCESSFUL
-=============================================
+            ==========================================
+            CI/CD PIPELINE COMPLETED SUCCESSFULLY
+            ==========================================
 
-Backend Image:
-${BACKEND_IMAGE}:${IMAGE_TAG}
+            Backend Image:
+            ${BACKEND_IMAGE}:${IMAGE_TAG}
 
-Frontend Image:
-${FRONTEND_IMAGE}:${IMAGE_TAG}
+            Frontend Image:
+            ${FRONTEND_IMAGE}:${IMAGE_TAG}
 
-Kubernetes Namespace:
-${K8S_NAMESPACE}
+            Kubernetes Namespace:
+            ${K8S_NAMESPACE}
 
-=============================================
-"""
+            ==========================================
+            """
         }
 
         failure {
             echo """
-=============================================
-       CI/CD PIPELINE FAILED
-=============================================
+            ==========================================
+            PIPELINE FAILED
+            ==========================================
 
-Check the Jenkins Console Output
-for the failed stage.
+            Check the failed stage above.
 
-=============================================
-"""
+            ==========================================
+            """
         }
 
         always {
