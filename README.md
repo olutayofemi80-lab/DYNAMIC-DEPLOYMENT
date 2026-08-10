@@ -1,43 +1,153 @@
-# 🚀 Dynamic Deployment — CI/CD & Kubernetes
+# Dynamic Deployment Platform
+## CI/CD • Docker • AWS EC2 • Load Balancing • CloudWatch • Kubernetes/K3s
 
-A full-stack DevOps project demonstrating automated application deployment using **GitHub, Jenkins, Docker, Docker Hub, AWS EC2, and K3s Kubernetes**.
+A production-oriented DevOps project demonstrating how a full-stack application can be containerized, continuously integrated, continuously deployed, monitored, and orchestrated across AWS infrastructure.
 
-## 🏗️ Architecture
+The project combines **GitHub, Jenkins, Docker, Docker Hub, AWS EC2, Application Load Balancing, CloudWatch, and K3s Kubernetes** into an automated deployment workflow.
+
+---
+
+## Architecture
 
 ```text
-GitHub → Jenkins → Docker → Docker Hub → K3s on AWS EC2
-                                      ↓
-                         Frontend + Backend + MongoDB
+                         ┌──────────────┐
+                         │    GitHub    │
+                         └──────┬───────┘
+                                │
+                           Git Push
+                                │
+                                ▼
+                         ┌──────────────┐
+                         │    Jenkins   │
+                         │    CI / CD   │
+                         └──────┬───────┘
+                                │
+                    Build • Test • Tag • Push
+                                │
+                                ▼
+                         ┌──────────────┐
+                         │  Docker Hub  │
+                         └──────┬───────┘
+                                │
+                                ▼
+                    ┌────────────────────────┐
+                    │       AWS EC2          │
+                    │                        │
+                    │  ┌──────────────────┐  │
+                    │  │  K3s Kubernetes  │  │
+                    │  │                  │  │
+                    │  │ Frontend         │  │
+                    │  │ Backend          │  │
+                    │  │ MongoDB          │  │
+                    │  │ Services         │  │
+                    │  │ Ingress          │  │
+                    │  └──────────────────┘  │
+                    └───────────┬────────────┘
+                                │
+                         Application Traffic
+                                │
+                                ▼
+                       ┌──────────────────┐
+                       │ AWS Load Balancer│
+                       └──────────────────┘
+                                │
+                                ▼
+                             Users
+
+                    ┌──────────────────────┐
+                    │   AWS CloudWatch     │
+                    │ Logs • Metrics •     │
+                    │ Monitoring • Alarms  │
+                    └──────────────────────┘
 ```
 
-## 🛠️ Tech Stack
+---
 
-- **Frontend:** HTML, CSS, JavaScript
-- **Backend:** Node.js, Express.js
-- **Database:** MongoDB
-- **Containerization:** Docker, Docker Compose
-- **CI/CD:** Jenkins
-- **Registry:** Docker Hub
-- **Cloud:** AWS EC2
-- **Orchestration:** Kubernetes / K3s
-- **Networking:** Kubernetes Services & Ingress
-- **Configuration:** ConfigMaps & Secrets
-- **Version Control:** Git & GitHub
+## Technology Stack
 
-## 🔄 CI/CD Pipeline
+| Area | Technology |
+|---|---|
+| Frontend | HTML, CSS, JavaScript |
+| Backend | Node.js, Express.js |
+| Database | MongoDB |
+| Version Control | Git, GitHub |
+| Containerization | Docker, Docker Compose |
+| Image Registry | Docker Hub |
+| CI/CD | Jenkins |
+| Cloud | AWS EC2 |
+| Load Balancing | AWS Application Load Balancer |
+| Monitoring | AWS CloudWatch |
+| Orchestration | Kubernetes / K3s |
+| Kubernetes CLI | kubectl |
+| Networking | Kubernetes Services & Ingress |
+| Configuration | ConfigMaps |
+| Secrets | Kubernetes Secrets |
 
-Jenkins automates the deployment workflow:
+---
 
-1. Checkout source code from GitHub
-2. Install backend dependencies
-3. Run tests
-4. Build Docker images
-5. Tag images using Jenkins build numbers
-6. Push images to Docker Hub
-7. Connect to the K3s cluster
-8. Deploy/update Kubernetes resources
-9. Verify application rollouts
-10. Clean up unused Docker images
+## Project Structure
+
+```text
+dynamic-deployment/
+│
+├── backend/
+│   ├── server.js
+│   ├── package.json
+│   ├── package-lock.json
+│   └── Dockerfile
+│
+├── frontend/
+│   ├── Dockerfile
+│   └── ...
+│
+├── kubernetes/
+│   ├── namespace.yaml
+│   ├── secret.yaml
+│   ├── configmap.yaml
+│   ├── mongo-deployment.yaml
+│   ├── mongo-service.yaml
+│   ├── backend-deployment.yaml
+│   ├── backend-service.yaml
+│   ├── frontend-deployment.yaml
+│   ├── frontend-service.yaml
+│   └── ingress.yaml
+│
+├── docker-compose.yml
+├── Jenkinsfile
+└── README.md
+```
+
+---
+
+## CI/CD Pipeline
+
+Jenkins automates the application delivery process from source code to Kubernetes.
+
+```text
+GitHub
+  ↓
+Checkout
+  ↓
+Install Dependencies
+  ↓
+Run Tests
+  ↓
+Build Docker Images
+  ↓
+Tag Images
+  ↓
+Push to Docker Hub
+  ↓
+Connect to K3s
+  ↓
+Apply Kubernetes Manifests
+  ↓
+Update Application Images
+  ↓
+Verify Rollout
+  ↓
+Deployment Complete
+```
 
 ### Docker Images
 
@@ -46,15 +156,33 @@ femzytr/dynamicdeployment-backend
 femzytr/dynamicdeployment-frontend
 ```
 
-Images are versioned using Jenkins build numbers for deployment traceability.
+Images are tagged with Jenkins build numbers to provide version traceability and support future rollback strategies.
 
-## ☸️ Kubernetes Deployment
+Example:
 
-The application is deployed in the `dynamic-deployment` namespace using:
+```text
+dynamicdeployment-backend:15
+dynamicdeployment-frontend:15
+```
 
+---
+
+## Kubernetes / K3s Deployment
+
+K3s was selected as a lightweight Kubernetes distribution suitable for the AWS EC2 environment and free-tier resource constraints.
+
+The application is deployed in:
+
+```text
+dynamic-deployment
+```
+
+### Kubernetes Resources
+
+- Namespace
 - Deployments
 - Services
-- ConfigMaps
+- ConfigMap
 - Secrets
 - Ingress
 
@@ -62,69 +190,329 @@ Application components:
 
 ```text
 Frontend
-   ↓
+    ↓
 Backend
-   ↓
+    ↓
 MongoDB
 ```
 
-Jenkins communicates with the remote K3s cluster through the Kubernetes API and automatically deploys new application versions.
+Jenkins is configured with the K3s kubeconfig and can remotely execute Kubernetes deployments.
 
-## 🐛 Key Challenges & Solutions
+---
 
-### MongoDB Authentication
+## AWS Load Balancing
 
-The backend initially returned authentication errors when accessing MongoDB.
+An AWS Application Load Balancer is used to provide a stable entry point for application traffic and distribute requests to the application infrastructure.
 
-**Solution:** Aligned MongoDB credentials, Kubernetes Secrets, and the backend connection configuration.
+The load-balancing layer provides:
 
-### Kubernetes Ingress Connectivity
+- Centralized application access
+- Traffic distribution
+- Health checks
+- Integration with AWS networking
+- A foundation for HTTPS/TLS
+- Improved availability and scalability
 
-Ingress was initially inaccessible during local Kubernetes testing.
+The application can therefore follow the architecture:
 
-**Solution:** Investigated Ingress controller logs, Services, and Endpoints and corrected the application routing configuration.
+```text
+Internet
+   ↓
+AWS Application Load Balancer
+   ↓
+EC2 / Kubernetes Application
+   ↓
+Frontend / Backend
+```
 
-### Jenkins → Kubernetes Connectivity
+---
 
-Jenkins initially could not deploy to the Kubernetes environment.
+## AWS CloudWatch Monitoring
 
-**Solution:** Migrated the deployment environment to **K3s on AWS EC2**, configured Jenkins with the K3s kubeconfig, and secured Kubernetes API access through AWS Security Groups.
+AWS CloudWatch is used as the monitoring layer for the AWS infrastructure.
 
-### Docker Image Versioning
+Monitoring includes:
 
-Using only `latest` made deployments difficult to track.
+- EC2 CPU utilization
+- Network traffic
+- Instance health
+- Application infrastructure metrics
+- CloudWatch alarms
+- Dashboard-based monitoring
 
-**Solution:** Jenkins automatically tags images using the build number, allowing specific application versions to be identified and deployed.
+The monitoring architecture is:
 
-## 🔐 Security
+```text
+AWS EC2
+   │
+   ├── CPU Metrics
+   ├── Network Metrics
+   └── Instance Metrics
+            │
+            ▼
+       CloudWatch
+            │
+       ┌────┴────┐
+       ▼         ▼
+   Dashboard   Alarms
+```
 
-- Jenkins Credentials used for Docker Hub authentication
-- Kubernetes Secrets used for sensitive configuration
-- AWS Security Groups used to restrict Kubernetes API access
-- Dedicated Kubernetes namespace for application resources
+CloudWatch provides visibility into infrastructure performance and helps identify potential resource or availability issues.
 
-> Production environments should use services such as AWS Secrets Manager for sensitive credentials.
+---
 
-## 📈 Future Improvements
+## Security
 
-- Terraform infrastructure automation
-- Trivy vulnerability scanning
-- SonarQube code analysis
+Security considerations implemented during the project include:
+
+- Jenkins Credentials for Docker Hub authentication
+- Kubernetes Secrets for sensitive application configuration
+- AWS Security Groups for controlled network access
+- Restricted Kubernetes API access
+- Dedicated Kubernetes namespace
+- Separation of application configuration from container images
+
+For production environments, sensitive credentials should be managed with services such as **AWS Secrets Manager** rather than storing secrets directly in source control.
+
+---
+
+# Troubleshooting & Challenges
+
+## MongoDB Authentication Failure
+
+### Problem
+
+The backend initially failed to authenticate with MongoDB.
+
+```text
+MongoDB connection failed: Authentication failed.
+```
+
+### Solution
+
+The MongoDB credentials, Kubernetes Secret, and backend connection configuration were reviewed and aligned.
+
+The backend subsequently connected successfully:
+
+```text
+Connected to MongoDB
+Backend running on port 3001
+```
+
+---
+
+## MongoDB API Authentication Error
+
+### Problem
+
+The `/api/tasks` endpoint initially returned:
+
+```text
+Command find requires authentication
+```
+
+### Solution
+
+The MongoDB authentication configuration was corrected and the backend was redeployed.
+
+The endpoint subsequently returned:
+
+```text
+HTTP/1.1 200 OK
+[]
+```
+
+confirming successful backend-to-database communication.
+
+---
+
+## Kubernetes Ingress Connectivity
+
+### Problem
+
+The Kubernetes Ingress address was initially unreachable during local Minikube testing.
+
+### Solution
+
+The Ingress controller logs, Services, Pods, and Endpoints were inspected to identify the routing problem. Service endpoints were verified and the application was successfully exposed through the appropriate local forwarding mechanism.
+
+---
+
+## Jenkins → Kubernetes Connectivity
+
+### Problem
+
+Jenkins initially could not deploy directly to the Kubernetes environment.
+
+### Solution
+
+K3s was deployed on AWS EC2 and Jenkins was configured with the K3s kubeconfig.
+
+Connectivity was verified using:
+
+```bash
+sudo -u jenkins kubectl \
+--kubeconfig=/var/lib/jenkins/.kube/config \
+get nodes
+```
+
+The K3s control-plane node returned:
+
+```text
+Ready
+```
+
+confirming successful Jenkins-to-Kubernetes communication.
+
+---
+
+## Kubernetes API Security
+
+The K3s Kubernetes API runs on:
+
+```text
+6443
+```
+
+AWS Security Groups were configured to permit the required Kubernetes API traffic from the Jenkins infrastructure rather than unnecessarily exposing the API publicly.
+
+---
+
+## Docker Image Versioning
+
+### Problem
+
+Using only the `latest` tag makes it difficult to identify which application version is deployed.
+
+### Solution
+
+Jenkins uses the build number as the Docker image version.
+
+```text
+Jenkins Build 15
+       ↓
+backend:15
+frontend:15
+       ↓
+Kubernetes Deployment
+```
+
+This provides deployment traceability and creates a foundation for automated rollback.
+
+---
+
+# Deployment Verification
+
+Kubernetes resources can be verified with:
+
+```bash
+kubectl get nodes
+kubectl get deployments -n dynamic-deployment
+kubectl get pods -n dynamic-deployment
+kubectl get services -n dynamic-deployment
+kubectl get ingress -n dynamic-deployment
+```
+
+Rollout status:
+
+```bash
+kubectl rollout status deployment/backend -n dynamic-deployment
+kubectl rollout status deployment/frontend -n dynamic-deployment
+```
+
+Backend health check:
+
+```text
+/api/health
+```
+
+Tasks API:
+
+```text
+/api/tasks
+```
+
+---
+
+# Key DevOps Outcomes
+
+This project demonstrates practical experience with:
+
+- Automated CI/CD pipelines
+- Docker containerization
+- Docker image versioning
+- Docker Hub image publishing
+- Jenkins automation
+- AWS EC2 infrastructure
+- AWS Application Load Balancing
 - AWS CloudWatch monitoring
-- HTTPS/TLS
-- Persistent storage for MongoDB
-- Kubernetes autoscaling
+- Kubernetes orchestration
+- K3s cluster administration
+- Kubernetes Services and Ingress
+- ConfigMaps and Secrets
+- Remote Jenkins-to-Kubernetes deployment
+- Application and infrastructure troubleshooting
+- Secure cloud networking
+
+---
+
+# Future Improvements
+
+Planned production-level improvements include:
+
+- Terraform infrastructure as code
+- HTTPS/TLS certificates
+- Route 53 DNS
+- AWS Secrets Manager
+- Persistent MongoDB storage
+- Kubernetes RBAC
+- Network Policies
+- Horizontal Pod Autoscaling
+- Trivy vulnerability scanning
+- SonarQube code-quality analysis
+- Prometheus and Grafana monitoring
 - Automated rollback
-- Prometheus & Grafana
-- AWS EKS migration
+- Blue/Green or Canary deployments
+- Migration to Amazon EKS
 
-## 🎯 Key Outcome
+---
 
-Successfully implemented an automated **GitHub → Jenkins → Docker Hub → K3s Kubernetes** deployment pipeline on AWS EC2, including containerization, automated testing, image versioning, Kubernetes orchestration, configuration management, secrets management, and deployment verification.
+# Final Result
 
-## 👨‍💻 Author
+The project successfully implements an automated deployment workflow:
 
-**Oluwafemi Olutayo**  
+```text
+GitHub
+   ↓
+Jenkins
+   ↓
+Docker Build & Test
+   ↓
+Docker Hub
+   ↓
+K3s on AWS EC2
+   ↓
+Kubernetes Deployment
+   ↓
+Load Balancer
+   ↓
+Application Users
+
+              +
+
+          CloudWatch
+              ↓
+       Monitoring & Alarms
+```
+
+The result is a practical DevOps platform that demonstrates the complete path from **source code → CI/CD → container registry → cloud infrastructure → Kubernetes deployment → load balancing → monitoring**.
+
+---
+
+## Author
+
+**Oluwafemi Olutayo**
+
 Software Engineer | DevOps & Cloud Engineer
 
-**Technologies:** `Git` `GitHub` `Docker` `Jenkins` `AWS` `Kubernetes` `K3s` `Docker Hub` `Node.js` `Express` `MongoDB`
+`Technologies Used: Git` `GitHub` `Docker` `Jenkins` `AWS EC2` `Load Balancer` `CloudWatch` `Kubernetes` `K3s` `Docker Hub` `Node.js` `Express` `MongoDB`
