@@ -33,7 +33,11 @@ app.get("/api/tasks", async (req, res) => {
     const tasks = await Task.find().sort({ createdAt: -1 });
     res.json(tasks);
   } catch (error) {
-    res.status(500).json({ message: "Failed to fetch tasks" });
+    console.error("FAILED TO FETCH TASKS:", error);
+    res.status(500).json({
+      message: "Failed to fetch tasks",
+      error: error.message
+    });
   }
 });
 
@@ -52,8 +56,12 @@ app.post("/api/tasks", async (req, res) => {
 
     res.status(201).json(task);
   } catch (error) {
-    res.status(500).json({ message: "Failed to create task" });
-  }
+  console.error("FAILED TO CREATE TASK:", error);
+  res.status(500).json({
+    message: "Failed to create task",
+    error: error.message
+  });
+}
 });
 
 app.put("/api/tasks/:id", async (req, res) => {
